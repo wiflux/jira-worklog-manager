@@ -1,0 +1,10 @@
+services:
+  worklog-manager:
+    build:
+      context: ./worklog-manager
+    container_name: jira-worklog-manager
+    env_file:
+      - .env
+    ports:
+      - "8086:8086"
+    restart: unless-stopped

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkLog Report</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/theme.css" />
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle theme" title="Toggle theme">
+    🌙
+  </button>
+  <div class="w-4/5 mx-auto p-4 md:p-6">
+    <header class="mb-6">
+      <h1 id="pageTitle" class="text-3xl md:text-4xl font-bold tracking-tight">WorkLog Report - unknown</h1>
+      <p class="text-slate-600 mt-1">Fetch Jira worklogs by user and date range</p>
+    </header>
+
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
+      <h2 class="text-xl font-semibold">WorkLog Report</h2>
+      <div class="mt-3 flex flex-wrap gap-3 items-end">
+        <div>
+          <label for="reportStartDateInput" class="block text-sm font-medium text-slate-700">Start date</label>
+          <input id="reportStartDateInput" type="date"
+                 class="mt-1 w-44 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label for="reportEndDateInput" class="block text-sm font-medium text-slate-700">End date</label>
+          <input id="reportEndDateInput" type="date"
+                 class="mt-1 w-44 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        </div>
+        <button id="reportSearchBtn"
+                class="rounded-md bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700">
+          Search
+        </button>
+      </div>
+      <p id="reportStatusMsg" class="mt-3 text-sm text-slate-600">Enter filters and click Search.</p>
+      <p id="errorMsg" class="mt-1 text-sm text-red-600 hidden"></p>
+      <div class="mt-3 overflow-auto max-h-[420px] border border-slate-200 rounded-md">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="text-left p-2">Started</th>
+              <th class="text-left p-2">Issue</th>
+              <th class="text-left p-2">Summary</th>
+              <th class="text-left p-2">Time Spent</th>
+              <th class="text-left p-2">Worklog ID</th>
+            </tr>
+          </thead>
+          <tbody id="reportTbody">
+            <tr><td class="p-2 text-slate-500" colspan="5">No report data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p id="reportSummaryMsg" class="mt-2 text-lg text-slate-600">Total tasks: 0 | Total time spent: 0m</p>
+    </section>
+
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
+      <h2 class="text-xl font-semibold">Add Custom Worklog</h2>
+      <div class="mt-3 flex flex-wrap gap-3 items-end">
+        <div>
+          <label for="customIssueKeyInput" class="block text-sm font-medium text-slate-700">Ticket ID</label>
+          <input id="customIssueKeyInput" type="text" placeholder="TS-0000"
+                 class="mt-1 w-48 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label for="customTimeSpentInput" class="block text-sm font-medium text-slate-700">Worklog time</label>
+          <input id="customTimeSpentInput" type="text" placeholder="15m, 2h, 1d"
+                 class="mt-1 w-48 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label for="customStartedInput" class="block text-sm font-medium text-slate-700">Date started</label>
+          <input id="customStartedInput" type="datetime-local"
+                 class="mt-1 w-64 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label for="customDescriptionInput" class="block text-sm font-medium text-slate-700">Work description</label>
+          <input id="customDescriptionInput" type="text" placeholder="What work was done..."
+                 class="mt-1 w-80 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        </div>
+        <button id="customWorklogBtn"
+                class="rounded-md bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700">
+          Add Worklog
+        </button>
+      </div>
+      <p id="customWorklogStatusMsg" class="mt-3 text-sm text-slate-600">Enter ticket and time, then click Add Worklog.</p>
+      <div id="customWorklogResultBox" class="mt-2 text-sm rounded-md border border-slate-200 bg-slate-50 p-3 hidden"></div>
+      <div id="issueDetailsBox" class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <p class="text-sm text-slate-700 font-medium mb-2">Ticket details</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+          <p><span class="font-medium">Summary:</span> <span id="issueSummaryValue">-</span></p>
+          <p><span class="font-medium">Priority:</span> <span id="issuePriorityValue">-</span></p>
+          <p><span class="font-medium">Assignee:</span> <span id="issueAssigneeValue">-</span></p>
+          <p><span class="font-medium">Original estimate:</span> <span id="issueEstimateValue">-</span></p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
