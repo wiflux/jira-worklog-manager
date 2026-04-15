@@ -3,6 +3,10 @@
 JiraWorkLog is a FastAPI service to view Jira worklogs and add custom worklogs
 for a configured Jira user.
 
+## App Preview
+
+![JiraWorkLog App Preview](worklog-manager/app/static/jira-worklog.png)
+
 ## Features
 
 - Worklog report by date range
