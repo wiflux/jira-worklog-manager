@@ -75,6 +75,15 @@ def add_custom_jira_worklog(
     }
 
 
+def _extract_adf_text(node: Any) -> str:
+    if not node or not isinstance(node, dict):
+        return ""
+    if node.get("type") == "text":
+        return node.get("text", "")
+    parts = [_extract_adf_text(child) for child in (node.get("content") or [])]
+    return " ".join(p for p in parts if p)
+
+
 def fetch_jira_worklogs(
     user_email: str, start_date: date, end_date: date
 ) -> list[dict[str, Any]]:
@@ -184,6 +193,7 @@ def fetch_jira_worklogs(
                         "started": started_raw,
                         "time_spent_seconds": int(wl.get("timeSpentSeconds") or 0),
                         "time_spent": wl.get("timeSpent") or "",
+                        "description": _extract_adf_text(wl.get("comment")) if isinstance(wl.get("comment"), dict) else (wl.get("comment") or ""),
                     }
                 )
 
