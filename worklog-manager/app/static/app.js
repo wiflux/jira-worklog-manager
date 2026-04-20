@@ -407,7 +407,7 @@ function renderReportRows(rows) {
             ${
               row.issue_key
                 ? `<div class="flex items-center gap-1">
-                     <button type="button" class="inline-flex items-center rounded-lg bg-emerald-600 p-2.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300 dark:bg-emerald-600 dark:hover:bg-emerald-700 dark:focus:ring-emerald-800"
+                     <button type="button" class="inline-flex items-center rounded-lg border border-emerald-700 p-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-emerald-300 dark:border-emerald-500 dark:text-emerald-500 dark:hover:bg-emerald-500 dark:hover:text-white dark:focus:ring-emerald-800"
                        aria-label="Add custom worklog for ${escapeHtml(row.issue_key)}"
                        data-action="open-custom-worklog-modal"
                        data-issue-key="${escapeHtml(row.issue_key)}">
@@ -415,7 +415,7 @@ function renderReportRows(rows) {
                         <path fill-rule="evenodd" d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z" clip-rule="evenodd"/>
                       </svg>
                      </button>
-                     <button type="button" class="inline-flex items-center rounded-lg bg-red-600 p-2.5 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900"
+                     <button type="button" class="inline-flex items-center rounded-lg border border-red-700 p-2.5 text-sm font-medium text-red-700 hover:bg-red-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-red-300 dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500 dark:hover:text-white dark:focus:ring-red-900"
                        aria-label="Delete worklog ${escapeHtml(row.worklog_id || "")} for ${escapeHtml(row.issue_key)}"
                        data-action="delete-worklog"
                        data-issue-key="${escapeHtml(row.issue_key)}"
