@@ -8,7 +8,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .clients import add_custom_jira_worklog, fetch_jira_issue_details, fetch_jira_worklogs
+from .clients import (
+    add_custom_jira_worklog,
+    delete_jira_worklog,
+    fetch_jira_issue_details,
+    fetch_jira_worklogs,
+)
 from .config import settings
 
 app = FastAPI(title="JiraWorkLog", version="1.0.0")
@@ -33,6 +38,11 @@ class IssueLookupRequest(BaseModel):
     issue_key: str = Field(min_length=3, max_length=30, pattern=r"^[A-Z][A-Z0-9]+-\d+$")
 
 
+class DeleteWorklogRequest(BaseModel):
+    issue_key: str = Field(min_length=3, max_length=30, pattern=r"^[A-Z][A-Z0-9]+-\d+$")
+    worklog_id: str = Field(min_length=1, max_length=40, pattern=r"^\d+$")
+
+
 def _normalize_started(started_raw: str | None) -> str | None:
     value = (started_raw or "").strip()
     if not value:
@@ -45,10 +55,13 @@ def _normalize_started(started_raw: str | None) -> str | None:
     try:
         parsed_local = datetime.strptime(value, "%d-%b-%Y %I:%M %p").astimezone()
     except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail='Invalid started format. Use "DD-MMM-YYYY hh:mm AM/PM", e.g. "04-Apr-2026 06:30 PM".',
-        ) from exc
+        try:
+            parsed_local = datetime.strptime(value, "%d-%b-%Y").astimezone()
+        except ValueError as date_exc:
+            raise HTTPException(
+                status_code=400,
+                detail='Invalid started format. Use "DD-MMM-YYYY" or "DD-MMM-YYYY hh:mm AM/PM", e.g. "04-Apr-2026" or "04-Apr-2026 06:30 PM".',
+            ) from date_exc
 
     return parsed_local.strftime("%Y-%m-%dT%H:%M:%S.000%z")
 
@@ -130,6 +143,27 @@ def lookup_issue(req: IssueLookupRequest):
         return fetch_jira_issue_details(req.issue_key.strip().upper())
     except requests.HTTPError as exc:
         detail = "Failed to fetch Jira issue details"
+        response = exc.response
+        if response is not None:
+            try:
+                jira_payload = response.json()
+                if jira_payload:
+                    detail = jira_payload
+            except ValueError:
+                if response.text:
+                    detail = response.text
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+
+@app.post("/worklogs/delete")
+def delete_worklog(req: DeleteWorklogRequest):
+    try:
+        return delete_jira_worklog(
+            issue_key=req.issue_key.strip().upper(),
+            worklog_id=req.worklog_id.strip(),
+        )
+    except requests.HTTPError as exc:
+        detail = "Failed to delete Jira worklog"
         response = exc.response
         if response is not None:
             try:

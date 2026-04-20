@@ -75,6 +75,23 @@ def add_custom_jira_worklog(
     }
 
 
+def delete_jira_worklog(issue_key: str, worklog_id: str) -> dict[str, Any]:
+    auth = (settings.jira_email, settings.jira_api_token)
+    headers = {"Accept": "application/json"}
+    resp = requests.delete(
+        f"{settings.jira_base_url}/rest/api/3/issue/{issue_key}/worklog/{worklog_id}",
+        auth=auth,
+        headers=headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return {
+        "ok": True,
+        "issue_key": issue_key,
+        "worklog_id": str(worklog_id),
+    }
+
+
 def _extract_adf_text(node: Any) -> str:
     if not node or not isinstance(node, dict):
         return ""
