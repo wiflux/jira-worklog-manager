@@ -1,11 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WorkLog Report</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/static/theme.css" />
+  
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
   <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle theme" title="Toggle theme">
@@ -19,85 +21,180 @@
 
     <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
       <h2 class="text-xl font-semibold">WorkLog Report</h2>
-      <div class="mt-3 flex flex-wrap gap-3 items-end">
-        <div>
-          <label for="reportStartDateInput" class="block text-sm font-medium text-slate-700">Start date</label>
-          <input id="reportStartDateInput" type="date"
-                 class="mt-1 w-44 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+      <div class="mt-3">
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <select id="presetSelect" class="preset-select">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this-week">This Week</option>
+            <option value="last-week">Last Week</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <button id="openCustomWorklogBtn"
+                  class="rounded-md bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700">
+            Add Worklog
+          </button>
         </div>
-        <div>
-          <label for="reportEndDateInput" class="block text-sm font-medium text-slate-700">End date</label>
-          <input id="reportEndDateInput" type="date"
-                 class="mt-1 w-44 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+        <div id="customDateRangeRow" class="hidden">
+          <div class="flex flex-wrap items-center gap-2">
+            
+            <div id="date-range-picker" date-rangepicker datepicker-format="dd-M-yyyy" class="flex items-center">
+              <div class="relative">
+                  <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                      <svg class="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v2h20V4ZM0 18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8H0v10Zm5-8h10a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2Z"/>
+                      </svg>
+                  </div>
+                  <input name="start" type="text" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5" placeholder="DD-MMM-YYYY">
+              </div>
+              <span class="mx-4 text-gray-500">to</span>
+              <div class="relative">
+                  <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                      <svg class="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v2h20V4ZM0 18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8H0v10Zm5-8h10a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2Z"/>
+                      </svg>
+                  </div>
+                  <input name="end" type="text" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5" placeholder="DD-MMM-YYYY">
+              </div>
+          </div>
+
+
+            <button id="reportSearchBtn"
+                    class="rounded-md bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700">
+              Search
+            </button>
+          </div>
         </div>
-        <button id="reportSearchBtn"
-                class="rounded-md bg-indigo-600 px-4 py-2 text-white font-medium hover:bg-indigo-700">
-          Search
-        </button>
+        <input id="reportStartDateInput" type="hidden" />
+        <input id="reportEndDateInput" type="hidden" />
       </div>
       <p id="reportStatusMsg" class="mt-3 text-sm text-slate-600">Enter filters and click Search.</p>
-      <p id="errorMsg" class="mt-1 text-sm text-red-600 hidden"></p>
-      <div class="mt-3 overflow-auto max-h-[420px] border border-slate-200 rounded-md">
+      <div class="mt-3 border border-slate-200 rounded-md">
         <table class="min-w-full text-sm">
           <thead class="bg-slate-100 text-slate-700">
             <tr>
               <th class="text-left p-2">Started</th>
               <th class="text-left p-2">Issue</th>
               <th class="text-left p-2">Summary</th>
+              <th class="text-left p-2">Description</th>
               <th class="text-left p-2">Time Spent</th>
               <th class="text-left p-2">Worklog ID</th>
+              <th class="text-left p-2">Action</th>
             </tr>
           </thead>
           <tbody id="reportTbody">
-            <tr><td class="p-2 text-slate-500" colspan="5">No report data.</td></tr>
+            <tr><td class="p-2 text-slate-500" colspan="7">No report data.</td></tr>
           </tbody>
         </table>
       </div>
       <p id="reportSummaryMsg" class="mt-2 text-lg text-slate-600">Total tasks: 0 | Total time spent: 0m</p>
     </section>
-
-    <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
-      <h2 class="text-xl font-semibold">Add Custom Worklog</h2>
-      <div class="mt-3 flex flex-wrap gap-3 items-end">
-        <div>
-          <label for="customIssueKeyInput" class="block text-sm font-medium text-slate-700">Ticket ID</label>
-          <input id="customIssueKeyInput" type="text" placeholder="TS-0000"
-                 class="mt-1 w-48 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
-        </div>
-        <div>
-          <label for="customTimeSpentInput" class="block text-sm font-medium text-slate-700">Worklog time</label>
-          <input id="customTimeSpentInput" type="text" placeholder="15m, 2h, 1d"
-                 class="mt-1 w-48 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
-        </div>
-        <div>
-          <label for="customStartedInput" class="block text-sm font-medium text-slate-700">Date started</label>
-          <input id="customStartedInput" type="datetime-local"
-                 class="mt-1 w-64 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
-        </div>
-        <div>
-          <label for="customDescriptionInput" class="block text-sm font-medium text-slate-700">Work description</label>
-          <input id="customDescriptionInput" type="text" placeholder="What work was done..."
-                 class="mt-1 w-80 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
-        </div>
-        <button id="customWorklogBtn"
-                class="rounded-md bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700">
-          Add Worklog
-        </button>
-      </div>
-      <p id="customWorklogStatusMsg" class="mt-3 text-sm text-slate-600">Enter ticket and time, then click Add Worklog.</p>
-      <div id="customWorklogResultBox" class="mt-2 text-sm rounded-md border border-slate-200 bg-slate-50 p-3 hidden"></div>
-      <div id="issueDetailsBox" class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-        <p class="text-sm text-slate-700 font-medium mb-2">Ticket details</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-          <p><span class="font-medium">Summary:</span> <span id="issueSummaryValue">-</span></p>
-          <p><span class="font-medium">Priority:</span> <span id="issuePriorityValue">-</span></p>
-          <p><span class="font-medium">Assignee:</span> <span id="issueAssigneeValue">-</span></p>
-          <p><span class="font-medium">Original estimate:</span> <span id="issueEstimateValue">-</span></p>
-        </div>
-      </div>
-    </section>
   </div>
 
+  <div id="customWorklogModal" tabindex="-1" aria-hidden="true"
+       class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-4xl max-h-full">
+      <div class="relative bg-white rounded-lg shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t border-slate-200">
+          <h3 class="text-xl font-semibold text-slate-900">Add Custom Worklog</h3>
+          <button type="button"
+                  id="customWorklogModalCloseBtn"
+                  class="text-slate-400 bg-transparent hover:bg-slate-200 hover:text-slate-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center"
+                  aria-label="Close custom worklog modal">
+            <span class="sr-only">Close modal</span>
+            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+            </svg>
+          </button>
+        </div>
+        <div class="p-4 md:p-5">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label for="customIssueKeyInput" class="block text-sm font-medium text-slate-700">Ticket ID</label>
+              <input id="customIssueKeyInput" type="text" placeholder="TS-0000"
+                     class="mt-1 w-48 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+            </div>
+            <div>
+              <label for="customTimeSpentInput" class="block text-sm font-medium text-slate-700">Worklog time</label>
+              <input id="customTimeSpentInput" type="text" placeholder="15m, 2h, 1d"
+                     class="mt-1 w-48 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+            </div>
+            <div>
+              <label for="customStartedInput" class="block text-sm font-medium text-slate-700">Date started</label>
+              <input
+                  type="text"
+                  id="customStartedInput"
+                  datepicker
+                  datepicker-format="dd-M-yyyy"
+                  autocomplete="off"
+                  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-3"
+                  placeholder="DD-MMM-YYYY">
+            </div>
+            <div>
+              <label for="customStartedTimeInput" class="block text-sm font-medium text-slate-700">Time started</label>
+              <input
+                  type="time"
+                  id="customStartedTimeInput"
+                  timepicker
+                  autocomplete="off"
+                  step="900"
+                  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-3"
+                  placeholder="hh:mm">
+            </div>
+            <div>
+              <label for="customDescriptionInput" class="block text-sm font-medium text-slate-700">Work description</label>
+              <input id="customDescriptionInput" type="text" placeholder="What work was done..."
+                     class="mt-1 w-80 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500"/>
+            </div>
+            <button id="customWorklogBtn"
+                    class="rounded-md bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700">
+              Add Worklog
+            </button>
+          </div>
+          <p id="errorMsg" class="mt-1 text-sm text-red-600 hidden"></p>
+          <p id="customWorklogStatusMsg" class="mt-3 text-sm text-slate-600">Enter ticket and time, then click Add Worklog.</p>
+          <div id="customWorklogResultBox" class="mt-2 text-sm rounded-md border border-slate-200 bg-slate-50 p-3 hidden"></div>
+          <div id="issueDetailsBox" class="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p class="text-sm text-slate-700 font-medium mb-2">Ticket details</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <p><span class="font-medium">Summary:</span> <span id="issueSummaryValue">-</span></p>
+              <p><span class="font-medium">Priority:</span> <span id="issuePriorityValue">-</span></p>
+              <p><span class="font-medium">Assignee:</span> <span id="issueAssigneeValue">-</span></p>
+              <p><span class="font-medium">Original estimate:</span> <span id="issueEstimateValue">-</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="deleteWorklogConfirmModal" tabindex="-1" aria-hidden="true"
+       class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+      <div class="relative bg-white rounded-lg shadow-sm border border-slate-200">
+        <div class="p-4 md:p-5 text-center">
+          <svg class="mx-auto mb-4 text-red-500 w-10 h-10" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6v4m0 4h.01M19 10A9 9 0 1 1 1 10a9 9 0 0 1 18 0Z"/>
+          </svg>
+          <h3 id="deleteWorklogConfirmText" class="mb-5 text-lg font-normal text-slate-600">
+            Are you sure you want to delete this worklog?
+          </h3>
+          <button id="confirmDeleteWorklogBtn" type="button"
+                  class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center me-2">
+            Yes, delete
+          </button>
+          <button id="cancelDeleteWorklogBtn" type="button"
+                  class="text-slate-700 bg-white hover:bg-slate-100 focus:ring-4 focus:outline-none focus:ring-slate-200 rounded-lg border border-slate-200 text-sm font-medium px-5 py-2.5 hover:text-slate-900 focus:z-10">
+            No, cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/datepicker.min.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
