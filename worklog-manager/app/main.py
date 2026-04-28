@@ -13,6 +13,7 @@ from .clients import (
     delete_jira_worklog,
     fetch_jira_issue_details,
     fetch_jira_worklogs,
+    update_jira_worklog,
 )
 from .config import settings
 
@@ -41,6 +42,14 @@ class IssueLookupRequest(BaseModel):
 class DeleteWorklogRequest(BaseModel):
     issue_key: str = Field(min_length=3, max_length=30, pattern=r"^[A-Z][A-Z0-9]+-\d+$")
     worklog_id: str = Field(min_length=1, max_length=40, pattern=r"^\d+$")
+
+
+class UpdateWorklogRequest(BaseModel):
+    issue_key: str = Field(min_length=3, max_length=30, pattern=r"^[A-Z][A-Z0-9]+-\d+$")
+    worklog_id: str = Field(min_length=1, max_length=40, pattern=r"^\d+$")
+    time_spent: str = Field(min_length=1, max_length=20, pattern=r"^\s*\d+\s*[mhdw]\s*$")
+    started: str | None = Field(default=None, max_length=40)
+    description: str | None = Field(default=None, max_length=5000)
 
 
 def _normalize_started(started_raw: str | None) -> str | None:
@@ -164,6 +173,30 @@ def delete_worklog(req: DeleteWorklogRequest):
         )
     except requests.HTTPError as exc:
         detail = "Failed to delete Jira worklog"
+        response = exc.response
+        if response is not None:
+            try:
+                jira_payload = response.json()
+                if jira_payload:
+                    detail = jira_payload
+            except ValueError:
+                if response.text:
+                    detail = response.text
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+
+@app.post("/worklogs/update")
+def update_worklog(req: UpdateWorklogRequest):
+    try:
+        return update_jira_worklog(
+            issue_key=req.issue_key.strip().upper(),
+            worklog_id=req.worklog_id.strip(),
+            time_spent=req.time_spent.strip().lower(),
+            started=_normalize_started(req.started),
+            description=(req.description or "").strip() or None,
+        )
+    except requests.HTTPError as exc:
+        detail = "Failed to update Jira worklog"
         response = exc.response
         if response is not None:
             try:

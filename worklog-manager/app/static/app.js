@@ -29,6 +29,7 @@ function worklogApp() {
     reportStatusMsgHtml: "Enter filters and click Search.",
     reportSummaryMsg: "Total tasks: 0 | Total time spent: 0m",
     reportTbodyHtml: '<tr><td class="p-2 text-slate-500" colspan="7">No report data.</td></tr>',
+    reportRowCount: 0,
     hasLoadedReportOnce: false,
 
     // Modals
@@ -43,6 +44,9 @@ function worklogApp() {
     errorMsg: "",
     customWorklogStatusMsg: "Enter ticket and time, then click Add Worklog.",
     customWorklogBtnHtml: "Add Worklog",
+    customWorklogModalTitle: "Add Custom Worklog",
+    customWorklogSubmitLabel: "Add Worklog",
+    editingWorklogId: "",
     isCustomWorklogLoading: false,
     customWorklogResultVisible: false,
     customWorklogResultClass: "mt-2 text-sm rounded-md border p-3",
@@ -201,7 +205,7 @@ function worklogApp() {
            </svg>Fetching...`
         : "Search";
       if (isLoading) {
-        if (!this.hasLoadedReportOnce) this.renderReportSkeleton();
+        if (this.reportRowCount === 0) this.renderReportSkeleton();
         this.reportStatusMsgHtml = `Fetching Jira worklogs...
           <svg aria-hidden="true" role="status" class="inline w-5 h-5 ms-1 text-gray-200 dark:text-gray-600 fill-blue-600 animate-spin" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
@@ -217,8 +221,8 @@ function worklogApp() {
              <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
              <path d="M93.9676 39.0409C96.393 38.4037 97.8624 35.9113 97.0079 33.5539C95.2932 28.8227 92.8711 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446844 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="#065F46"/>
            </svg>Saving...`
-        : "Add Worklog";
-      if (isLoading) this.customWorklogStatusMsg = "Creating Jira worklog...";
+        : this.customWorklogSubmitLabel;
+      if (isLoading) this.customWorklogStatusMsg = this.editingWorklogId ? "Updating Jira worklog..." : "Creating Jira worklog...";
     },
 
     getCustomWorklogModalInstance() {
@@ -238,10 +242,39 @@ function worklogApp() {
     openCustomWorklogModal(issueKey = "") {
       this.clearError();
       this.customWorklogResultVisible = false;
+      this.customWorklogModalTitle = "Add Custom Worklog";
+      this.customWorklogSubmitLabel = "Add Worklog";
+      this.customWorklogBtnHtml = "Add Worklog";
+      this.editingWorklogId = "";
       this.customWorklogStatusMsg = "Enter ticket and time, then click Add Worklog.";
       const normalizedIssueKey = String(issueKey || "").trim().toUpperCase();
-      this.customForm.issueKey = normalizedIssueKey;
-      if (normalizedIssueKey) this.lookupTicketDetails();
+      if (normalizedIssueKey) {
+        this.customForm.issueKey = normalizedIssueKey;
+        this.lookupTicketDetails();
+      } else if (this.customForm.issueKey.trim()) {
+        this.customForm.issueKey = this.customForm.issueKey.trim().toUpperCase();
+      } else {
+        this.clearIssueDetails();
+      }
+      const modalInstance = this.getCustomWorklogModalInstance();
+      if (modalInstance) modalInstance.show();
+    },
+
+    openEditCustomWorklogModal(issueKey, worklogId, timeSpent, startedRaw, description) {
+      this.clearError();
+      this.customWorklogResultVisible = false;
+      this.customWorklogModalTitle = "Edit Custom Worklog";
+      this.customWorklogSubmitLabel = "Update Worklog";
+      this.customWorklogBtnHtml = "Update Worklog";
+      this.customWorklogStatusMsg = "Review and update worklog details.";
+      this.editingWorklogId = String(worklogId || "").trim();
+      this.customForm.issueKey = String(issueKey || "").trim().toUpperCase();
+      this.customForm.timeSpent = String(timeSpent || "").trim().toLowerCase();
+      this.customForm.description = String(description || "").trim();
+      const startedPrefill = this.parseStartedForForm(startedRaw);
+      this.customForm.startedDate = startedPrefill.date;
+      this.customForm.startedTime = startedPrefill.time;
+      if (this.customForm.issueKey) this.lookupTicketDetails();
       else this.clearIssueDetails();
       const modalInstance = this.getCustomWorklogModalInstance();
       if (modalInstance) modalInstance.show();
@@ -292,6 +325,21 @@ function worklogApp() {
       return `${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}`;
     },
 
+    parseStartedForForm(rawStarted) {
+      const value = String(rawStarted || "").trim();
+      if (!value) return { date: "", time: "" };
+      let normalized = value;
+      if (normalized.length >= 5 && (normalized.at(-5) === "+" || normalized.at(-5) === "-")) {
+        normalized = `${normalized.slice(0, -5)}${normalized.slice(-5, -2)}:${normalized.slice(-2)}`;
+      }
+      const dt = new Date(normalized);
+      if (Number.isNaN(dt.getTime())) return { date: "", time: "" };
+      return {
+        date: this.formatCurrentDisplayDate(dt),
+        time: this.formatCurrentTime24h(dt)
+      };
+    },
+
     escapeHtml(value) {
       return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -324,13 +372,14 @@ function worklogApp() {
     },
 
     renderReportRows(rows) {
+      this.reportRowCount = rows.length;
       this.reportTbodyHtml = rows.length
         ? rows.map((row) => `
             <tr class="border-b border-slate-100">
               <td class="p-2">${this.escapeHtml(this.formatStartedDisplay(row.started))}</td>
               <td class="p-2 font-medium">${
                 row.issue_key
-                  ? `<a href="${this.escapeHtml(row.issue_url || "#")}" target="_blank" rel="noopener noreferrer" class="text-blue-700 hover:underline">${this.escapeHtml(row.issue_key)}</a>`
+                  ? `<a href="${this.escapeHtml(row.issue_url || "#")}" target="_blank" rel="noopener noreferrer" class="issue-link hover:underline">${this.escapeHtml(row.issue_key)}</a>`
                   : "-"
               }</td>
               <td class="p-2">${this.escapeHtml(row.issue_summary || "-")}</td>
@@ -345,6 +394,18 @@ function worklogApp() {
                     data-issue-key="${this.escapeHtml(row.issue_key)}">
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fill-rule="evenodd" d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z" clip-rule="evenodd"/>
+                    </svg>
+                  </button>
+                  <button type="button" class="inline-flex items-center rounded-lg border border-indigo-700 p-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:border-indigo-500 dark:text-indigo-500 dark:hover:bg-indigo-500 dark:hover:text-white dark:focus:ring-indigo-800"
+                    aria-label="Edit worklog ${this.escapeHtml(row.worklog_id || "")} for ${this.escapeHtml(row.issue_key)}"
+                    data-action="edit-worklog"
+                    data-issue-key="${this.escapeHtml(row.issue_key)}"
+                    data-worklog-id="${this.escapeHtml(row.worklog_id || "")}"
+                    data-time-spent="${this.escapeHtml(row.time_spent || "")}"
+                    data-started="${this.escapeHtml(row.started || "")}"
+                    data-description="${this.escapeHtml(row.description || "")}">
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path d="M4 13.25V16h2.75L14.81 7.94l-2.75-2.75L4 13.25Zm12.71-7.04a1.003 1.003 0 0 0 0-1.42l-1.5-1.5a1.003 1.003 0 0 0-1.42 0l-1.17 1.17 2.75 2.75 1.34-1.01Z"/>
                     </svg>
                   </button>
                   <button type="button" class="inline-flex items-center rounded-lg border border-red-700 p-2.5 text-sm font-medium text-red-700 hover:bg-red-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-red-300 dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500 dark:hover:text-white dark:focus:ring-red-900"
@@ -386,6 +447,7 @@ function worklogApp() {
     },
 
     renderReportMessageRow(message) {
+      this.reportRowCount = 0;
       this.reportTbodyHtml = `<tr><td class="p-2 text-slate-500" colspan="7">${this.escapeHtml(message)}</td></tr>`;
     },
 
@@ -457,6 +519,13 @@ function worklogApp() {
       return { value: `${dateValue} ${amPm}`, error: null };
     },
 
+    syncCustomStartedInputsToState() {
+      const dateInput = document.getElementById("customStartedInput");
+      const timeInput = document.getElementById("customStartedTimeInput");
+      if (dateInput) this.customForm.startedDate = String(dateInput.value || "").trim();
+      if (timeInput) this.customForm.startedTime = String(timeInput.value || "").trim();
+    },
+
     async runWorklogReportSearch() {
       this.clearError();
       if (this.preset === "custom") this.syncCustomRangeToState();
@@ -513,6 +582,7 @@ function worklogApp() {
       this.clearError();
       this.customWorklogResultVisible = false;
       let shouldRefreshReport = false;
+      this.syncCustomStartedInputsToState();
       const issueKey = this.customForm.issueKey.trim().toUpperCase();
       const timeSpent = this.customForm.timeSpent.trim().toLowerCase();
       const description = this.customForm.description.trim();
@@ -525,14 +595,20 @@ function worklogApp() {
         this.showError(startedError);
         return;
       }
+      if (this.editingWorklogId && !/^\d+$/.test(this.editingWorklogId)) {
+        this.showError("Worklog ID is required for edit.");
+        return;
+      }
 
       this.setCustomWorklogLoading(true);
       try {
-        const resp = await fetch("/worklogs/custom", {
+        const isEditMode = Boolean(this.editingWorklogId);
+        const resp = await fetch(isEditMode ? "/worklogs/update" : "/worklogs/custom", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             issue_key: issueKey,
+            ...(isEditMode ? { worklog_id: this.editingWorklogId } : {}),
             time_spent: timeSpent,
             started,
             description: description || null
@@ -542,18 +618,20 @@ function worklogApp() {
         try {
           payload = await resp.json();
         } catch {
-          payload = { detail: "Custom worklog response was not JSON." };
+          payload = { detail: "Worklog response was not JSON." };
         }
         if (!resp.ok) {
-          this.showCustomWorklogResult(false, payload?.detail || "Failed to add worklog.");
-          this.customWorklogStatusMsg = "Add worklog failed.";
+          this.showCustomWorklogResult(false, payload?.detail || (isEditMode ? "Failed to update worklog." : "Failed to add worklog."));
+          this.customWorklogStatusMsg = isEditMode ? "Update worklog failed." : "Add worklog failed.";
           return;
         }
         this.showCustomWorklogResult(true, payload);
-        this.customWorklogStatusMsg = `Added worklog ${payload.worklog_id || ""} on ${payload.issue_key || issueKey}.`;
+        this.customWorklogStatusMsg = isEditMode
+          ? `Updated worklog ${payload.worklog_id || this.editingWorklogId} on ${payload.issue_key || issueKey}.`
+          : `Added worklog ${payload.worklog_id || ""} on ${payload.issue_key || issueKey}.`;
         shouldRefreshReport = true;
       } catch (error) {
-        this.showCustomWorklogResult(false, error.message || "Unknown add worklog error");
+        this.showCustomWorklogResult(false, error.message || "Unknown worklog save error");
       } finally {
         this.setCustomWorklogLoading(false);
       }
@@ -633,6 +711,16 @@ function worklogApp() {
       const action = btn.getAttribute("data-action");
       if (action === "open-custom-worklog-modal") {
         this.openCustomWorklogModal(btn.getAttribute("data-issue-key") || "");
+        return;
+      }
+      if (action === "edit-worklog") {
+        this.openEditCustomWorklogModal(
+          btn.getAttribute("data-issue-key") || "",
+          btn.getAttribute("data-worklog-id") || "",
+          btn.getAttribute("data-time-spent") || "",
+          btn.getAttribute("data-started") || "",
+          btn.getAttribute("data-description") || ""
+        );
         return;
       }
       if (action === "delete-worklog") {

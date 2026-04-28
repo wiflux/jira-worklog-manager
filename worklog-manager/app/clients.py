@@ -92,6 +92,60 @@ def delete_jira_worklog(issue_key: str, worklog_id: str) -> dict[str, Any]:
     }
 
 
+def update_jira_worklog(
+    issue_key: str,
+    worklog_id: str,
+    time_spent: str,
+    started: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    auth = (settings.jira_email, settings.jira_api_token)
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    url = f"{settings.jira_base_url}/rest/api/3/issue/{issue_key}/worklog/{worklog_id}"
+    payload: dict[str, Any] = {"timeSpent": time_spent.strip()}
+    if started:
+        payload["started"] = started
+    cleaned_description = (description or "").strip()
+    legacy_prefix = "Logged:"
+    if cleaned_description.startswith(legacy_prefix):
+        cleaned_description = cleaned_description[len(legacy_prefix) :].strip()
+    if cleaned_description:
+        payload["comment"] = {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": cleaned_description}],
+                }
+            ],
+        }
+    else:
+        payload["comment"] = {
+            "type": "doc",
+            "version": 1,
+            "content": [],
+        }
+
+    resp = requests.put(
+        url,
+        json=payload,
+        auth=auth,
+        headers=headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    updated_payload = resp.json()
+    return {
+        "worklog_id": str(updated_payload.get("id", worklog_id)),
+        "issue_key": issue_key,
+        "issue_url": f"{settings.jira_base_url}/browse/{issue_key}",
+        "time_spent": time_spent.strip(),
+        "started": updated_payload.get("started") or started or "",
+        "description": cleaned_description,
+    }
+
+
 def _extract_adf_text(node: Any) -> str:
     if not node or not isinstance(node, dict):
         return ""

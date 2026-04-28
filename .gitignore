@@ -4,3 +4,4 @@ n8n/.n8n/
 credentials/
 __pycache__/
 *.pyc
+.claude/

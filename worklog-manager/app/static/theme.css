@@ -80,6 +80,15 @@ table tr {
   border-color: var(--border) !important;
 }
 
+/* Issue link color per theme */
+body.light-theme #reportTbody a.issue-link {
+  color: #1d4ed8 !important;
+}
+
+body:not(.light-theme) #reportTbody a.issue-link {
+  color: #fde047 !important;
+}
+
 /* Inputs */
 input {
   background-color: var(--surface-soft) !important;
