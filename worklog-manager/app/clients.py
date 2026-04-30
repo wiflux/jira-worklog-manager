@@ -6,6 +6,88 @@ import requests
 from .config import settings
 
 
+def fetch_jira_tasks(
+    *,
+    user_email: str,
+    ticket_id: str | None = None,
+    jql: str | None = None,
+    page_size: int = 10,
+    page_token: str | None = None,
+) -> dict[str, Any]:
+    auth = (settings.jira_email, settings.jira_api_token)
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    normalized_ticket_id = (ticket_id or "").strip().upper()
+    normalized_jql = (jql or "").strip()
+
+    if normalized_ticket_id:
+        query = f"key = {normalized_ticket_id}"
+    elif normalized_jql:
+        query = normalized_jql
+    else:
+        query = f'worklogAuthor = "{user_email}" ORDER BY updated DESC'
+
+    safe_page_size = max(int(page_size), 1)
+
+    payload: dict[str, Any] = {
+        "jql": query,
+        "maxResults": safe_page_size,
+        "fields": ["summary", "status", "priority", "assignee", "updated"],
+    }
+    if page_token:
+        payload["nextPageToken"] = page_token
+
+    search_resp = requests.post(
+        f"{settings.jira_base_url}/rest/api/3/search/jql",
+        json=payload,
+        auth=auth,
+        headers=headers,
+        timeout=30,
+    )
+    if search_resp.status_code == 400:
+        params: dict[str, Any] = {
+            "jql": query,
+            "maxResults": safe_page_size,
+            "fields": "summary,status,priority,assignee,updated",
+        }
+        if page_token:
+            params["nextPageToken"] = page_token
+        search_resp = requests.get(
+            f"{settings.jira_base_url}/rest/api/3/search/jql",
+            params=params,
+            auth=auth,
+            headers={"Accept": "application/json"},
+            timeout=30,
+        )
+    search_resp.raise_for_status()
+    response_payload = search_resp.json()
+    issues = response_payload.get("issues") or response_payload.get("values") or []
+    next_page_token: str | None = response_payload.get("nextPageToken") or None
+    rows: list[dict[str, Any]] = []
+
+    for issue in issues:
+        fields = issue.get("fields") or {}
+        issue_key = issue.get("key") or ""
+        rows.append(
+            {
+                "issue_key": issue_key,
+                "issue_url": f"{settings.jira_base_url}/browse/{issue_key}" if issue_key else "",
+                "summary": fields.get("summary") or "",
+                "status": ((fields.get("status") or {}).get("name") or ""),
+                "priority": ((fields.get("priority") or {}).get("name") or ""),
+                "assignee": ((fields.get("assignee") or {}).get("displayName") or ""),
+                "updated": fields.get("updated") or "",
+            }
+        )
+
+    return {
+        "page_size": safe_page_size,
+        "count": len(rows),
+        "tasks": rows,
+        "next_page_token": next_page_token,
+        "used_query": query,
+    }
+
+
 def fetch_jira_issue_details(issue_key: str) -> dict[str, Any]:
     auth = (settings.jira_email, settings.jira_api_token)
     headers = {"Accept": "application/json"}

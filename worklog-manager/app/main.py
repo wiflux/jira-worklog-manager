@@ -12,6 +12,7 @@ from .clients import (
     add_custom_jira_worklog,
     delete_jira_worklog,
     fetch_jira_issue_details,
+    fetch_jira_tasks,
     fetch_jira_worklogs,
     update_jira_worklog,
 )
@@ -50,6 +51,13 @@ class UpdateWorklogRequest(BaseModel):
     time_spent: str = Field(min_length=1, max_length=20, pattern=r"^\s*\d+\s*[mhdw]\s*$")
     started: str | None = Field(default=None, max_length=40)
     description: str | None = Field(default=None, max_length=5000)
+
+
+class JiraTasksRequest(BaseModel):
+    ticket_id: str | None = Field(default=None, max_length=30)
+    jql: str | None = Field(default=None, max_length=4000)
+    page_size: int = Field(default=10, ge=1, le=100)
+    page_token: str | None = Field(default=None, max_length=500)
 
 
 def _normalize_started(started_raw: str | None) -> str | None:
@@ -207,3 +215,35 @@ def update_worklog(req: UpdateWorklogRequest):
                 if response.text:
                     detail = response.text
         raise HTTPException(status_code=502, detail=detail) from exc
+
+
+@app.post("/report/jira-tasks")
+def report_jira_tasks(req: JiraTasksRequest):
+    normalized_ticket = (req.ticket_id or "").strip().upper()
+    if normalized_ticket and not re.match(r"^[A-Z][A-Z0-9]+-\d+$", normalized_ticket):
+        raise HTTPException(status_code=400, detail="Ticket ID must be in format ABC-123.")
+    try:
+        results = fetch_jira_tasks(
+            user_email=settings.jira_email,
+            ticket_id=normalized_ticket or None,
+            jql=(req.jql or "").strip() or None,
+            page_size=req.page_size,
+            page_token=(req.page_token or "").strip() or None,
+        )
+    except requests.HTTPError as exc:
+        detail = "Failed to fetch Jira tasks"
+        response = exc.response
+        if response is not None:
+            try:
+                jira_payload = response.json()
+                errors = jira_payload.get("errorMessages") if isinstance(jira_payload, dict) else None
+                if errors:
+                    detail = "Invalid JQL query. " + " ".join(str(error) for error in errors)
+                elif jira_payload:
+                    detail = jira_payload
+            except ValueError:
+                if response.text:
+                    detail = response.text
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+    return results

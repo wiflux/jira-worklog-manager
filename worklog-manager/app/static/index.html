@@ -85,6 +85,72 @@
       </div>
       <p id="reportSummaryMsg" class="mt-2 text-lg text-slate-600" x-text="reportSummaryMsg">Total tasks: 0 | Total time spent: 0m</p>
     </section>
+
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
+      <h2 class="text-xl font-semibold">Jira Tasks</h2>
+      <div class="mt-3 flex flex-wrap items-end gap-3">
+        <div>
+          <label for="jiraTaskTicketIdInput" class="block text-sm font-medium text-slate-700">Ticket ID</label>
+          <input id="jiraTaskTicketIdInput" x-model="jiraTaskTicketId" @keydown.enter.prevent="runJiraTaskSearchFromInput()"
+                 type="text" placeholder="TS-0000"
+                 class="mt-1 w-56 rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500" />
+        </div>
+        <div class="flex-1 min-w-[320px]">
+          <label for="jiraTaskJqlInput" class="block text-sm font-medium text-slate-700">JQL</label>
+          <input id="jiraTaskJqlInput" x-model="jiraTaskJql" :disabled="!isJiraTaskJqlEditing" @keydown.enter.prevent="runJiraTaskSearchFromInput()"
+                 type="text" placeholder='created >= -30d AND assignee = currentUser() ORDER BY created DESC'
+                 class="mt-1 w-full rounded-md border-slate-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-700 dark:disabled:bg-slate-700 dark:disabled:text-slate-200" />
+        </div>
+        <button x-show="!isJiraTaskJqlEditing" @click="enableJiraTaskJqlEditing()"
+                class="inline-flex items-center rounded-lg border border-indigo-700 p-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:border-indigo-500 dark:text-indigo-500 dark:hover:bg-indigo-500 dark:hover:text-white dark:focus:ring-indigo-800">
+          Edit
+        </button>
+        <button x-show="isJiraTaskJqlEditing" @click="cancelJiraTaskJqlEdit()"
+                class="inline-flex items-center rounded-lg border border-slate-400 p-2.5 text-sm font-medium text-slate-700 hover:bg-slate-700 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-slate-300 dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white dark:focus:ring-slate-700">
+          Cancel
+        </button>
+        <button x-show="isJiraTaskJqlEditing" @click="updateJiraTaskJql()"
+                class="inline-flex items-center rounded-lg border border-emerald-700 p-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-emerald-300 dark:border-emerald-500 dark:text-emerald-500 dark:hover:bg-emerald-500 dark:hover:text-white dark:focus:ring-emerald-800">
+          Update
+        </button>
+        <button :disabled="isJiraTaskLoading" @click="runJiraTaskSearch(true)"
+                class="rounded-md bg-emerald-600 px-4 py-2 text-white font-medium hover:bg-emerald-700 disabled:opacity-60">
+          <span x-html="jiraTaskSearchBtnHtml">Search</span>
+        </button>
+      </div>
+      <p class="mt-3 text-sm text-slate-600" x-text="jiraTaskStatusMsg">Search tasks by Ticket ID or JQL.</p>
+      <p x-show="jiraTaskErrorMsg" x-text="jiraTaskErrorMsg" class="mt-1 text-sm text-red-600"></p>
+      <div class="mt-3 border border-slate-200 rounded-md">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 text-slate-700">
+            <tr>
+              <th class="text-left p-2">Ticket ID</th>
+              <th class="text-left p-2">Summary</th>
+              <th class="text-left p-2">Status</th>
+              <th class="text-left p-2">Priority</th>
+              <th class="text-left p-2">Assignee</th>
+              <th class="text-left p-2">Updated</th>
+              <th class="text-left p-2">Action</th>
+            </tr>
+          </thead>
+          <tbody id="jiraTaskTbody" @click="handleJiraTaskActionClick($event)" x-html="jiraTaskTbodyHtml"></tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <p class="text-sm text-slate-600" x-text="jiraTaskPaginationSummary">Showing 0</p>
+        <div class="flex items-center gap-2">
+          <button @click="changeJiraTaskPage(-1)" :disabled="jiraTaskCurrentPageIndex <= 0 || isJiraTaskLoading"
+                  class="inline-flex items-center rounded-lg border border-indigo-700 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:border-indigo-500 dark:text-indigo-500 dark:hover:bg-indigo-500 dark:hover:text-white dark:focus:ring-indigo-800 disabled:opacity-50 disabled:pointer-events-none">
+            Previous
+          </button>
+          <span class="text-sm text-slate-700" x-text="`Page ${jiraTaskCurrentPageIndex + 1}`">Page 1</span>
+          <button @click="changeJiraTaskPage(1)" :disabled="!jiraTaskHasNextPage || isJiraTaskLoading"
+                  class="inline-flex items-center rounded-lg border border-indigo-700 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:border-indigo-500 dark:text-indigo-500 dark:hover:bg-indigo-500 dark:hover:text-white dark:focus:ring-indigo-800 disabled:opacity-50 disabled:pointer-events-none">
+            Next
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div id="customWorklogModal" tabindex="-1" aria-hidden="true"

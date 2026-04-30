@@ -1,4 +1,6 @@
 const THEME_STORAGE_KEY = "jira-worklog-theme";
+const JIRA_TASK_JQL_STORAGE_KEY = "jira-task-jql-query";
+const DEFAULT_JIRA_TASK_JQL = "created >= -30d AND assignee = currentUser() ORDER BY created DESC";
 const MONTH_INDEX = {
   jan: 0,
   feb: 1,
@@ -31,6 +33,24 @@ function worklogApp() {
     reportTbodyHtml: '<tr><td class="p-2 text-slate-500" colspan="7">No report data.</td></tr>',
     reportRowCount: 0,
     hasLoadedReportOnce: false,
+
+    // Jira tasks state
+    jiraTaskTicketId: "",
+    jiraTaskJql: "",
+    isJiraTaskJqlEditing: false,
+    jiraTaskSearchBtnHtml: "Search",
+    isJiraTaskLoading: false,
+    jiraTaskStatusMsg: "Search tasks by Ticket ID or JQL.",
+    jiraTaskErrorMsg: "",
+    jiraTaskTbodyHtml: '<tr><td class="p-2 text-slate-500" colspan="7">No tasks loaded yet.</td></tr>',
+    jiraTaskRows: [],
+    jiraTaskPageSize: 10,
+    jiraTaskPaginationSummary: "Showing 0",
+    jiraTaskLastCriteriaKey: "",
+    // cursor-based pagination
+    jiraTaskPageTokenHistory: [null],  // index = page index (0-based), value = token to fetch that page
+    jiraTaskCurrentPageIndex: 0,
+    jiraTaskHasNextPage: false,
 
     // Modals
     customWorklogModalInstance: null,
@@ -72,11 +92,18 @@ function worklogApp() {
     init() {
       this.initializeTheme();
       this.initializePresets();
+      this.initializeJiraTaskState();
       this.clearIssueDetails();
       this.setDefaultCustomStartedDateTime();
       this.setupDateRangePicker();
       this.loadMeta();
       this.runWorklogReportSearch();
+      this.runJiraTaskSearch();
+    },
+
+    initializeJiraTaskState() {
+      const savedJql = localStorage.getItem(JIRA_TASK_JQL_STORAGE_KEY);
+      this.jiraTaskJql = savedJql ? savedJql : DEFAULT_JIRA_TASK_JQL;
     },
 
     setupDateRangePicker() {
@@ -248,7 +275,13 @@ function worklogApp() {
       this.editingWorklogId = "";
       this.customWorklogStatusMsg = "Enter ticket and time, then click Add Worklog.";
       this.resetCustomWorklogForm();
-      this.clearIssueDetails();
+      const normalizedIssueKey = String(issueKey || "").trim().toUpperCase();
+      if (normalizedIssueKey) {
+        this.customForm.issueKey = normalizedIssueKey;
+        this.lookupTicketDetails();
+      } else {
+        this.clearIssueDetails();
+      }
       const modalInstance = this.getCustomWorklogModalInstance();
       if (modalInstance) modalInstance.show();
     },
@@ -483,6 +516,192 @@ function worklogApp() {
 
     clearError() {
       this.errorMsg = "";
+    },
+
+    setJiraTaskLoading(isLoading) {
+      this.isJiraTaskLoading = isLoading;
+      this.jiraTaskSearchBtnHtml = isLoading
+        ? `<svg aria-hidden="true" role="status" class="inline w-4 h-4 me-2 text-white animate-spin" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+             <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+             <path d="M93.9676 39.0409C96.393 38.4037 97.8624 35.9113 97.0079 33.5539C95.2932 28.8227 92.8711 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446844 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="#1E3A8A"/>
+           </svg>Fetching...`
+        : "Search";
+      if (isLoading && this.jiraTaskRows.length === 0) this.renderJiraTaskSkeleton();
+      if (isLoading) this.jiraTaskStatusMsg = "Fetching Jira tasks...";
+    },
+
+    clearJiraTaskError() {
+      this.jiraTaskErrorMsg = "";
+    },
+
+    setJiraTaskError(message) {
+      this.jiraTaskErrorMsg = message;
+    },
+
+    getJiraTaskEffectiveFilters() {
+      const ticketId = this.jiraTaskTicketId.trim().toUpperCase();
+      const jql = this.jiraTaskJql.trim();
+      return {
+        ticket_id: ticketId || "",
+        jql: ticketId ? "" : jql
+      };
+    },
+
+    buildJiraTaskCriteriaKey(filters) {
+      return `${filters.ticket_id}::${filters.jql}`;
+    },
+
+    runJiraTaskSearchFromInput() {
+      this.runJiraTaskSearch(true);
+    },
+
+    enableJiraTaskJqlEditing() {
+      this.isJiraTaskJqlEditing = true;
+      this.clearJiraTaskError();
+      this.jiraTaskStatusMsg = "Edit JQL and click Update to save.";
+    },
+
+    cancelJiraTaskJqlEdit() {
+      const savedJql = localStorage.getItem(JIRA_TASK_JQL_STORAGE_KEY);
+      this.jiraTaskJql = savedJql ? savedJql : DEFAULT_JIRA_TASK_JQL;
+      this.isJiraTaskJqlEditing = false;
+      this.clearJiraTaskError();
+      this.jiraTaskStatusMsg = "Search tasks by Ticket ID or JQL.";
+    },
+
+    updateJiraTaskJql() {
+      const normalizedJql = this.jiraTaskJql.trim() || DEFAULT_JIRA_TASK_JQL;
+      this.jiraTaskJql = normalizedJql;
+      localStorage.setItem(JIRA_TASK_JQL_STORAGE_KEY, normalizedJql);
+      this.isJiraTaskJqlEditing = false;
+      this.runJiraTaskSearch(true);
+    },
+
+    changeJiraTaskPage(direction) {
+      const nextIndex = this.jiraTaskCurrentPageIndex + direction;
+      if (nextIndex < 0) return;
+      if (direction > 0 && !this.jiraTaskHasNextPage) return;
+      this.jiraTaskCurrentPageIndex = nextIndex;
+      this.runJiraTaskSearch();
+    },
+
+    updateJiraTaskPaginationSummary() {
+      if (!this.jiraTaskRows.length) {
+        this.jiraTaskPaginationSummary = "Showing 0";
+        return;
+      }
+      const start = this.jiraTaskCurrentPageIndex * this.jiraTaskPageSize + 1;
+      const end = start + this.jiraTaskRows.length - 1;
+      this.jiraTaskPaginationSummary = `Showing ${start}–${end}`;
+    },
+
+    renderJiraTaskSkeleton() {
+      const row = `
+        <tr class="border-b border-slate-100 animate-pulse">
+          <td class="p-2"><div class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 w-20"></div></td>
+          <td class="p-2"><div class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 w-56"></div></td>
+          <td class="p-2"><div class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 w-20"></div></td>
+          <td class="p-2"><div class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 w-20"></div></td>
+          <td class="p-2"><div class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 w-28"></div></td>
+          <td class="p-2"><div class="h-3 rounded-full bg-gray-200 dark:bg-gray-700 w-32"></div></td>
+          <td class="p-2"><div class="h-8 rounded-lg bg-gray-200 dark:bg-gray-700 w-12"></div></td>
+        </tr>`;
+      this.jiraTaskTbodyHtml = `${row}${row}${row}`;
+    },
+
+    renderJiraTaskRows(rows) {
+      this.jiraTaskRows = rows;
+      this.jiraTaskTbodyHtml = rows.length
+        ? rows.map((row) => `
+            <tr class="border-b border-slate-100">
+              <td class="p-2 font-medium">${
+                row.issue_key
+                  ? `<a href="${this.escapeHtml(row.issue_url || "#")}" target="_blank" rel="noopener noreferrer" class="issue-link hover:underline">${this.escapeHtml(row.issue_key)}</a>`
+                  : "-"
+              }</td>
+              <td class="p-2">${this.escapeHtml(row.summary || "-")}</td>
+              <td class="p-2">${this.escapeHtml(row.status || "-")}</td>
+              <td class="p-2">${this.escapeHtml(row.priority || "-")}</td>
+              <td class="p-2">${this.escapeHtml(row.assignee || "-")}</td>
+              <td class="p-2">${this.escapeHtml(this.formatStartedDisplay(row.updated) || "-")}</td>
+              <td class="p-2">${
+                row.issue_key ? `<button type="button" class="inline-flex items-center rounded-lg border border-emerald-700 p-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-800 hover:text-white focus:z-10 focus:outline-none focus:ring-4 focus:ring-emerald-300 dark:border-emerald-500 dark:text-emerald-500 dark:hover:bg-emerald-500 dark:hover:text-white dark:focus:ring-emerald-800"
+                  aria-label="Add custom worklog for ${this.escapeHtml(row.issue_key)}"
+                  data-action="open-custom-worklog-modal"
+                  data-issue-key="${this.escapeHtml(row.issue_key)}">
+                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1Z" clip-rule="evenodd"/>
+                  </svg>
+                </button>` : "-"
+              }</td>
+            </tr>
+          `).join("")
+        : '<tr><td class="p-2 text-slate-500" colspan="7">No tasks found.</td></tr>';
+      this.updateJiraTaskPaginationSummary();
+    },
+
+    resetJiraTaskPagination() {
+      this.jiraTaskPageTokenHistory = [null];
+      this.jiraTaskCurrentPageIndex = 0;
+      this.jiraTaskHasNextPage = false;
+    },
+
+    async runJiraTaskSearch(resetPage = false) {
+      this.clearJiraTaskError();
+      const filters = this.getJiraTaskEffectiveFilters();
+      const criteriaKey = this.buildJiraTaskCriteriaKey(filters);
+      if (resetPage || criteriaKey !== this.jiraTaskLastCriteriaKey) this.resetJiraTaskPagination();
+      this.jiraTaskLastCriteriaKey = criteriaKey;
+      this.jiraTaskTicketId = filters.ticket_id;
+
+      const pageToken = this.jiraTaskPageTokenHistory[this.jiraTaskCurrentPageIndex] ?? null;
+
+      this.setJiraTaskLoading(true);
+      try {
+        const resp = await fetch("/report/jira-tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ticket_id: filters.ticket_id || null,
+            jql: filters.jql || null,
+            page_size: this.jiraTaskPageSize,
+            page_token: pageToken
+          })
+        });
+        let payload;
+        try {
+          payload = await resp.json();
+        } catch {
+          payload = { detail: "Jira tasks response was not JSON." };
+        }
+        if (!resp.ok) {
+          this.setJiraTaskError(payload?.detail || "Failed to fetch Jira tasks.");
+          this.jiraTaskStatusMsg = "Search failed.";
+          this.renderJiraTaskRows([]);
+          this.updateJiraTaskPaginationSummary();
+          return;
+        }
+        const tasks = payload.tasks || [];
+        const nextToken = payload.next_page_token || null;
+        this.jiraTaskHasNextPage = Boolean(nextToken);
+        // Store the next page token so forward navigation can use it
+        if (nextToken) this.jiraTaskPageTokenHistory[this.jiraTaskCurrentPageIndex + 1] = nextToken;
+        this.renderJiraTaskRows(tasks);
+        if (!tasks.length) {
+          this.jiraTaskStatusMsg = "No results found.";
+        } else if (filters.ticket_id) {
+          this.jiraTaskStatusMsg = `Showing results for ticket ${filters.ticket_id}.`;
+        } else {
+          this.jiraTaskStatusMsg = `Page ${this.jiraTaskCurrentPageIndex + 1} loaded.`;
+        }
+      } catch (error) {
+        this.setJiraTaskError(error.message || "Unknown Jira task error");
+        this.jiraTaskStatusMsg = "Search failed.";
+        this.renderJiraTaskRows([]);
+        this.updateJiraTaskPaginationSummary();
+      } finally {
+        this.setJiraTaskLoading(false);
+      }
     },
 
     showCustomWorklogResult(ok, payload) {
@@ -756,6 +975,15 @@ function worklogApp() {
           btn.getAttribute("data-worklog-id") || "",
           btn
         );
+      }
+    },
+
+    handleJiraTaskActionClick(event) {
+      const btn = event.target.closest("button[data-action]");
+      if (!btn) return;
+      const action = btn.getAttribute("data-action");
+      if (action === "open-custom-worklog-modal") {
+        this.openCustomWorklogModal(btn.getAttribute("data-issue-key") || "");
       }
     },
 

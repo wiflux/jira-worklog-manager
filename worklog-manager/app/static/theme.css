@@ -81,11 +81,13 @@ table tr {
 }
 
 /* Issue link color per theme */
-body.light-theme #reportTbody a.issue-link {
+body.light-theme #reportTbody a.issue-link,
+body.light-theme #jiraTaskTbody a.issue-link {
   color: #1d4ed8 !important;
 }
 
-body:not(.light-theme) #reportTbody a.issue-link {
+body:not(.light-theme) #reportTbody a.issue-link,
+body:not(.light-theme) #jiraTaskTbody a.issue-link {
   color: #fde047 !important;
 }
 
@@ -94,6 +96,17 @@ input {
   background-color: var(--surface-soft) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
+}
+
+/* Jira task JQL disabled readability by theme */
+body.light-theme #jiraTaskJqlInput:disabled {
+  color: #a5a5a5 !important;
+  -webkit-text-fill-color: #a5a5a5 !important;
+}
+
+body:not(.light-theme) #jiraTaskJqlInput:disabled {
+  color: #9298a0 !important;
+  -webkit-text-fill-color: #9298a0 !important;
 }
 
 /* Buttons */
