@@ -247,15 +247,8 @@ function worklogApp() {
       this.customWorklogBtnHtml = "Add Worklog";
       this.editingWorklogId = "";
       this.customWorklogStatusMsg = "Enter ticket and time, then click Add Worklog.";
-      const normalizedIssueKey = String(issueKey || "").trim().toUpperCase();
-      if (normalizedIssueKey) {
-        this.customForm.issueKey = normalizedIssueKey;
-        this.lookupTicketDetails();
-      } else if (this.customForm.issueKey.trim()) {
-        this.customForm.issueKey = this.customForm.issueKey.trim().toUpperCase();
-      } else {
-        this.clearIssueDetails();
-      }
+      this.resetCustomWorklogForm();
+      this.clearIssueDetails();
       const modalInstance = this.getCustomWorklogModalInstance();
       if (modalInstance) modalInstance.show();
     },
@@ -314,6 +307,39 @@ function worklogApp() {
       const now = new Date();
       if (!this.customForm.startedDate.trim()) this.customForm.startedDate = this.formatCurrentDisplayDate(now);
       if (!this.customForm.startedTime.trim()) this.customForm.startedTime = this.formatCurrentTime24h(now);
+    },
+
+    resetCustomWorklogForm() {
+      this.customForm.issueKey = "";
+      this.customForm.timeSpent = "";
+      this.customForm.description = "";
+
+      const now = new Date();
+      const defaultDate = this.formatCurrentDisplayDate(now);
+      const defaultTime = this.formatCurrentTime24h(now);
+
+      this.customForm.startedDate = defaultDate;
+      this.customForm.startedTime = defaultTime;
+
+      // Flowbite datepicker/timepicker own the DOM value directly —
+      // Alpine x-model alone won't update their visual state, so we
+      // set .value and dispatch "input" so Flowbite syncs too.
+      this.$nextTick(() => {
+        const dateInput = document.getElementById("customStartedInput");
+        const timeInput = document.getElementById("customStartedTimeInput");
+        if (dateInput) {
+          dateInput.value = defaultDate;
+          dateInput.dispatchEvent(new Event("input", { bubbles: true }));
+          dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (timeInput) {
+          timeInput.value = defaultTime;
+          timeInput.dispatchEvent(new Event("input", { bubbles: true }));
+          timeInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+
+      this.clearIssueDetails();
     },
 
     formatCurrentDisplayDate(dt) {
@@ -626,6 +652,7 @@ function worklogApp() {
           return;
         }
         this.showCustomWorklogResult(true, payload);
+        if (!isEditMode) this.resetCustomWorklogForm();
         this.customWorklogStatusMsg = isEditMode
           ? `Updated worklog ${payload.worklog_id || this.editingWorklogId} on ${payload.issue_key || issueKey}.`
           : `Added worklog ${payload.worklog_id || ""} on ${payload.issue_key || issueKey}.`;
